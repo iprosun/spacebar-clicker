@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spacebar Clicker</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.16/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.18/dist/sweetalert2.all.min.js"></script>
+    <style>
+        .container {
+            background-color: black;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple-wave {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            opacity: 0;
+            transform: scale(0);
+            background-color: rgba(255, 255, 255, 0.6);
+            animation: ripple 1s linear;
+        }
+
+        @keyframes ripple {
+            to {
+                opacity: 0;
+                transform: scale(4);
+            }
+        }
+
+        .pressed {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+
+<body class="bg-black min-h-screen flex items-center justify-center">
+    <div class="container mx-auto max-w-lg p-4 bg-white rounded shadow-lg">
+        <h1 class="text-2xl font-bold mb-4">Spacebar Clicker</h1>
+
+        <div class="flex items-center mb-4">
+            <label for="duration" class="mr-2">Set Duration (seconds):</label>
+            <input type="number" id="duration" class="w-20 px-2 py-1 border rounded" min="1" step="1" />
+            <button id="setTime" class="ml-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                Start
+            </button>
+        </div>
+
+        <div class="flex items-center justify-center mb-4">
+            <div id="spacebar" class="px-8 py-4 text-white rounded hover:bg-blue-600"
+                style="transition: transform 0.1s;">
+                Press Spacebar
+            </div>
+            <div class="ripple-wave" id="ripple1"></div>
+            <div class="ripple-wave" id="ripple2"></div>
+            <div class="ripple-wave" id="ripple3"></div>
+        </div>
+
+        <div class="flex items-center mb-4">
+            <span class="mr-2">Hits:</span>
+            <span class="counter font-bold text-lg">0</span>
+        </div>
+
+        <div class="flex items-center">
+            <span class="mr-2">Time Remaining:</span>
+            <span id="count" class="font-bold text-lg">0</span>
+        </div>
+
+        <div class="mt-4">
+            <button id="restart" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Restart</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        let timer = 0;
+        let hits = 0;
+        let interval = null;
+        let started = false;
+        let completed = false;
+        let pressStartTime = null;
+        let isSpacebarPressed = false;
+
+        const gradients = [
+            'linear-gradient(to right, #A8CABA, #5D4157)',
+            'linear-gradient(to right, #2980B9, #6DD5FA, #FFFFFF)',
+            'linear-gradient(to right, #C33764, #1D2671)',
+            'linear-gradient(to right, #F09819, #EDDE5D)',
+            'linear-gradient(to right, #654ea3, #eaafc8)',
+            'linear-gradient(to right, #1D2B64, #F8CDDA)',
+            // Add more gradient colors as needed
+        ];
+
+        function getRandomGradient() {
+            const randomIndex = Math.floor(Math.random() * gradients.length);
+            return gradients[randomIndex];
+        }
+
+        function changeBackground() {
+            const gradient = getRandomGradient();
+            document.querySelector('.container').style.backgroundImage = gradient;
+        }
+
+        function recordHit() {
+            if (started && !completed && !isSpacebarPressed) {
+                hits++;
+                $(".counter").text(hits);
+                $("#spacebar").addClass('pressed');
+                changeBackground();
+                isSpacebarPressed = true; // Set the flag to true
+            }
+        }
+
+        function resetScale() {
+            $("#spacebar").removeClass('pressed');
+            isSpacebarPressed = false; // Reset the flag to false on key release
+        }
+
+        function handleSpacebarDown(event) {
+            if (event.keyCode === 32) {
+                event.preventDefault(); // Prevent scrolling on spacebar press
+                pressStartTime = Date.now(); // Record the press start time
+                createRipple(event);
+            }
+        }
+
+        function handleSpacebarUp(event) {
+            if (event.keyCode === 32) {
+                resetScale();
+                removeRipple(event);
+                recordHit(); // Record hit on spacebar release
+            }
+        }
+
+        $(document).on('keydown', handleSpacebarDown);
+
+        $(document).on('keyup', handleSpacebarUp);
+
+        $('#setTime').click(function() {
+            if ($("#duration").val() && $("#duration").val() > 0) {
+                completed = false;
+                started = true; // Start the game here
+                timer = parseInt($("#duration").val());
+                $("#count").text(timer);
+
+                hits = 0;
+                $(".counter").text(hits);
+
+                $("#spacebar").text("Press Spacebar");
+                $("#spacebar").prop("disabled", false);
+
+                clearInterval(interval);
+                interval = setInterval(decreaseTimer, 1000); // Start the timer
+
+                defaultBackground = document.querySelector('.container').style.backgroundImage; // Save the default background
+            } else {
+                $("#duration").val("");
+            }
+        });
+
+        function decreaseTimer() {
+            if (timer > 0) {
+                timer--;
+                $("#count").text(timer);
+                if (timer === 0) {
+                    clearInterval(interval);
+                    completed = true;
+                    $("#spacebar").prop("disabled", true);
+                    showScorePopup();
+                }
+            }
+        }
+
+        function showScorePopup() {
+            Swal.fire({
+                title: 'Game Over!',
+                html: `You pressed the spacebar ${hits} times in ${$("#duration").val()} seconds.`,
+                icon: 'success',
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+            });
+        }
+
+        $('#restart').click(function() {
+            $(".counter").text("0");
+            $("#count").text("0");
+            $("#duration").prop("disabled", false);
+            $("#setTime").prop("disabled", false);
+            $("#duration").val("");
+
+            timer = 0;
+            hits = 0;
+            clearInterval(interval);
+            interval = null;
+            started = false;
+            completed = false;
+            pressStartTime = null;
+
+            $("#spacebar").prop("disabled", true);
+            $("#spacebar").text("Start the game");
+
+            document.querySelector('.container').style.backgroundImage = defaultBackground; // Reset the background to its default state (black)
+        });
+    </script>
+    <script>
+        function endGame() {
+            const clicsBySeconds = (hits / parseInt($("#duration").val())).toFixed(2);
+            $("#count").text("0");
+            $("#duration").prop("disabled", false);
+            $("#setTime").prop("disabled", false);
+            $("#duration").val("");
+
+            timer = 0;
+            hits = 0;
+            clearInterval(interval);
+            interval = null;
+            started = false;
+            completed = false;
+            pressStartTime = null;
+
+            $("#spacebar").prop("disabled", true);
+            $("#spacebar").text("Start the game");
+
+            document.querySelector('.container').style.backgroundImage = defaultBackground; // Reset the background to its default state (black)
+
+            showScorePopup(clicsBySeconds);
+        }
+
+        function showScorePopup(clicsBySeconds) {
+            let therank, thecps, theclicks, theseconds, themainmsg, thesubmsg, theimgurl;
+
+            if (clicsBySeconds > 0 && clicsBySeconds <= 4) {
+                therank = "Speedy Snapper!";
+                thecps = clicsBySeconds;
+                theclicks = hits;
+                theseconds = parseInt($("#duration").val());
+                themainmsg = "“Wow, you snap those clicks like a pro! Keep up the finger acrobatics!”";
+                thesubmsg = "You're a Clicking Dynamo!";
+                theimgurl = "https://clickertest.us/speedy-snapper.svg";
+            } else if (clicsBySeconds > 4 && clicsBySeconds <= 6) {
+                therank = "Clever Clickster!";
+                thecps = clicsBySeconds;
+                theclicks = hits;
+                theseconds = parseInt($("#duration").val());
+                themainmsg = "“You've got some serious clicking wit! Keep outsmarting those buttons!”";
+                thesubmsg = "Clicking with Cunning!";
+                theimgurl = "https://clickertest.us/clever-clickster.svg";
+            } else if (clicsBySeconds > 6 && clicsBySeconds <= 7) {
+                therank = "Click Ninja!";
+                thecps = clicsBySeconds;
+                theclicks = hits;
+                theseconds = parseInt($("#duration").val());
+                themainmsg = "“You move like a ninja, silently clicking your way to victory!”";
+                thesubmsg = "Ninja of the Clicks!";
+                theimgurl = "https://clickertest.us/click-ninja.svg";
+            } else if (clicsBySeconds > 7 && clicsBySeconds <= 8) {
+                therank = "Master Clicker!";
+                thecps = clicsBySeconds;
+                theclicks = hits;
+                theseconds = parseInt($("#duration").val());
+                themainmsg = "“You've mastered the art of clicking! Keep it up, wise one!”";
+                thesubmsg = "Clicking Mastery Achieved!";
+                theimgurl = "https://clickertest.us/master-clicker.svg";
+            } else if (clicsBySeconds > 8 && clicsBySeconds <= 9) {
+                therank = "Epic Clickslinger!";
+                thecps = clicsBySeconds;
+                theclicks = hits;
+                theseconds = parseInt($("#duration").val());
+                themainmsg = "“Epic clicks! You're the hero of the clicking realm!”";
+                thesubmsg = "Slinging Clicks like a Boss!";
+                theimgurl = "https://clickertest.us/epic-clickslinger.svg";
+            } else {
+                therank = "Clicking Legend!";
+                thecps = clicsBySeconds;
+                theclicks = hits;
+                theseconds = parseInt($("#duration").val());
+                themainmsg = "“You are a legend among clickers! Your speed is unmatched!”";
+                thesubmsg = "Legendary Clicking Accomplished!";
+                theimgurl = "https://clickertest.us/clicking-legend.svg";
+            }
+
+            Swal.fire({
+                title: 'Game Over!',
+                html: `
+                <div class="flex items-center justify-center mb-4">
+                    <img src="${theimgurl}" alt="Rank" class="w-16 h-16 mr-4">
+                    <div>
+                        <h3 class="text-xl font-bold">${therank}</h3>
+                        <p class="text-gray-600">${thesubmsg}</p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-lg font-bold">You pressed the spacebar ${theclicks} times in ${theseconds} seconds.</p>
+                    <p class="text-lg font-bold">Clicks Per Second (CPS): ${thecps}</p>
+                </div>
+                <p class="text-gray-600 mt-4">${themainmsg}</p>
+                `,
+                icon: 'success',
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+            });
+        }
+    </script>
+
+</body>
+
+</html>
